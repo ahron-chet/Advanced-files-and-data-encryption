@@ -2,7 +2,7 @@ from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import pad, unpad
 from cryptography.fernet import Fernet
 import win32com.shell.shell as shell
-#from ffd import Dirs_and_files, Delet_files 
+from ffd import Dirs_and_files, Delet_files 
 import base64
 import hashlib
 import shutil
