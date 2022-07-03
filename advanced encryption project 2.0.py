@@ -23,7 +23,15 @@ class Crypt_ac:
         if type(iv)!=bytes:
             iv=iv.encode()
         self.key=key
-        self.cipher=AES.new(key, AES.MODE_CBC, iv)
+        try:
+            self.cipher=AES.new(key, AES.MODE_CBC, iv)
+        except:
+            pass
+        try:
+            self.cipher2=AES.new(key, AES.MODE_GCM, iv)
+        except Exception as e:
+            print(e)
+            pass
     
     
     def pad_data(self,data):
@@ -39,6 +47,12 @@ class Crypt_ac:
     def decrypt_data_aes(self,data):
         data=base64.b64decode(data)
         return self.cipher.decrypt(data[AES.block_size:])
+    
+    def encrypt_aes_gcm(self,data):
+        return self.cipher2.encrypt(data)
+    
+    def decrypt_aes_gcm(self,data):
+        return self.cipher2.decrypt(data)
     
     
     def fer_encrypt(self,data):
