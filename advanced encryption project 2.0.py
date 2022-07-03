@@ -100,7 +100,7 @@ class Crypt_ac:
                         srs.close()
                         Delet_files().delet_one_file(cp_file)
                         return 'Successfully encrypted!'
-                    except Eception as e:
+                    except Exception as e:
                         self._restore_data(cp_file,pathes[0])
                         raise Exception (str(e))
         elif pathSize>20971520:
