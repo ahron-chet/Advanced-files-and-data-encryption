@@ -1,7 +1,9 @@
+import Cryptodome
+from Cryptodome.PublicKey import RSA
+from Cryptodome.Cipher import PKCS1_OAEP
 from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import pad, unpad
 from cryptography.fernet import Fernet
-import win32com.shell.shell as shell
 from ffd import Dirs_and_files, Delet_files 
 import base64
 import hashlib
@@ -15,208 +17,235 @@ from colorama import Fore
 import time
 
 
-class Crypt_ac:
-    
-    def __init__(self,key,iv):
-        if type(key)!=bytes:
-            key=key.encode()
-        if type(iv)!=bytes:
-            iv=iv.encode()
-        self.key=key
-        try:
-            self.cipher=AES.new(key, AES.MODE_CBC, iv)
-        except:
-            pass
-        try:
-            self.cipher2=AES.new(key, AES.MODE_GCM, iv)
-        except Exception as e:
-            print(e)
-            pass
+class Crypt_ac(object):
     
     
-    def pad_data(self,data):
-        if len(data)%16!= 0:
-            while len(data)%16!= 0:
-                data+=b' '
-            return data
+    class Asymmetric_encryption(object):
             
-    def encrypt_data_aes(self,data):
-        data=self.pad_data(data)
-        return base64.b64encode(self.cipher.encrypt(data))
-    
-    def decrypt_data_aes(self,data):
-        data=base64.b64decode(data)
-        return self.cipher.decrypt(data[AES.block_size:])
-    
-    def encrypt_aes_gcm(self,data):
-        return self.cipher2.encrypt(data)
-    
-    def decrypt_aes_gcm(self,data):
-        return self.cipher2.decrypt(data)
-    
-    
-    def fer_encrypt(self,data):
-        if type(data)!= bytes:
-            data=data.encode()
-        key=base64.b64encode(hashlib.sha256(self.key).digest())
-        fer=Fernet(key)
-        return fer.encrypt(data)
-    
-    def fer_decrypt(self,data):
-        if type (data)!= bytes:
-            data=data.encode()
-        key=base64.b64encode(hashlib.sha256(self.key).digest())
-        fer=Fernet(key)
-        return fer.decrypt(data)
-        
-    
-    def _cp_file(self,path,name_cp):
-        srs=(path)
-        if name_cp=='backup':
-            dest=os.environ['AppData']+os.sep+'Cryptography'+os.sep+name_cp+os.path.splitext(path)[1]
-        else: 
-            dest=os.environ['AppData']+os.sep+'Cryptography'+os.sep+'Cipher'+os.sep+name_cp+os.path.splitext(path)[1]
-        try:
-            shutil.copyfile(srs,dest)
-        except:
-             if os.system('copy '+srs+' '+dest)!=0:
-                try:
-                    shell.ShellExecuteEx(lpVerb='runas', lpFile='cmd.exe', lpParameters='/c '+'copy '+srs+' '+dest)
-                except Exception as e:
-                    raise Exception (str(e))
-        return[srs,dest]
-    
-    
-    def encrypt_file(self,path):
-        pathSize=int(os.path.getsize(path))
-        if pathSize>=1073741824:
-            pathes=self._cp_file(path,'encp')
-            cp_file=pathes[-1]
-            with open(cp_file,'rb') as srs:
-                with open(pathes[0],'wb') as dest:
-                    try:
-                        dest.write(self.cipher.encrypt(pad(srs.read(),AES.block_size)))
-                        dest.close()
-                        srs.close()
-                        Delet_files().delet_one_file(cp_file)
-                        return 'Successfully encrypted!'
-                    except Exception as e:
-                        self._restore_data(cp_file,pathes[0])
-                        raise Exception (str(e))
-        elif pathSize>20971520:
-            with open(path,'rb') as file:
-                data=file.read()
-            with open(path,'wb')as file:
-                try:
-                    file.write(self.cipher.encrypt(pad(data,AES.block_size)))
-                    data=''
-                    return 'Successfully encrypted'
-                except Exception as e:
-                    file.write(data)
-                    data=''
-                    raise Exception (str(e))
-        else:
-            with open(path,'rb') as file:
-                data=file.read()
-            with open(path,'wb')as file:
-                try:
-                    file.write(self.fer_encrypt(data))
-                    data=''
-                    return 'Successfully encrypted'
-                except Exception as e:
-                    file.write(data)
-                    raise Exception (str(e))
-            
+        def generet_rsa_keys(self,bytes_length):
+            key=RSA.generate(bytes_length)
+            public=key.public_key()
+            return [key.export_key('PEM'),public.export_key('PEM')]
+
+        def import_rsa_private_key(self,private_pem):
+            return RSA.import_key(private_pem)
+
+        def import_rsa_public_key(self,public_pem):
+            return RSA.import_key(public_pem).public_key()
+
+        def rsa_encryt(self,public,data):
+            if type(public)!=Cryptodome.PublicKey.RSA.RsaKey:
+                public=self.import_rsa_private_key(public)
+            cipher=PKCS1_OAEP.new(public)
+            return base64.b64encode(cipher.encrypt(data))
+
+        def rsa_decrypt(self,private,data):
+            if type(private)!=Cryptodome.PublicKey.RSA.RsaKey:
+                private=self.import_rsa_private_key(private)
+            cipher=PKCS1_OAEP.new(private)
+            return cipher.decrypt(base64.b64decode(data))
+
 
     
-    def decrypt_file(self,path):
-        pathSize=int(os.path.getsize(path))
-        if pathSize>=1073741824:
-            pathes=self._cp_file(path,'decp')
-            cp_file=pathes[-1]
-            with open(cp_file,'rb') as srs:
-                with open(pathes[0],'wb') as dest:
-                    try:
-                        dest.write(unpad(self.cipher.decrypt(srs.read()),AES.block_size))
-                        dest.close()
-                        srs.close()
-                        Delet_files().delet_one_file(cp_file)
-                        return 'Successfully decrypted'
-                    except  Exception as e:
-                        self._restore_data(cp_file,pathes[0])
-                        raise Exception (str(e))
-        elif pathSize>27962124:
-            with open(path,'rb')as file:
-                data=file.read()
-            with open(path,'wb')as file:
-                try:
-                    file.write(unpad(self.cipher.decrypt(data),AES.block_size))
-                    data=''
-                    return 'Successfully decrypted'
-                except Exception as e:
-                    file.write(data)
-                    data=''
-                    raise Exception (str(e))
-        else:
-            with open(path,'rb')as file:
-                data=file.read()
-            with open(path,'wb')as file:
-                try:
-                    file.write(self.fer_decrypt(data))
-                    return 'Successfully decrypted'
-                except Exception as e:
-                    file.write(data)
-                    data=''
-                    raise Exception (str(e))
-            
-                    
-                
-                
-    def recursive_encrypt_files(self,path):
-        paths_dir=Dirs_and_files(path).get_all_files()
-        print('Processing...') 
-        for i in paths_dir:
-            try:
-                self.encrypt_file(i)
-            except:
-                pass
-        print('end.')
-        
-
-    def sync_recursive_encrypt_files(self,path):
-        sec=''
-        faild=''
-        print('Processing...')
-        paths_dir=Dirs_and_files(path).get_all_files()
-        for i in paths_dir:
-            try:
-                self.encrypt_file(i)
-                sec+=f"{i.strip():<70}{' sec':>10}"+'\n'
-            except:
-                faild+=f"{i.strip():<70}{' failde':>10}"+'\n'
-                pass
-        print('end.')
-        return sec+faild
     
-    def recursive_decrypt_files(self,path):
-        paths_dir=Dirs_and_files(path).get_all_files()
-        print('Processing...') 
-        for i in paths_dir:
+    class Symmetric_encryption(object):
+
+        def __init__(self,key,iv=b'0'*16):
+            if type(key)!=bytes:
+                key=key.encode()
+            if type(iv)!=bytes:
+                iv=iv.encode()
+            self.key=key
             try:
-                self.decrypt_file(i)
+                self.cipher=AES.new(key, AES.MODE_CBC, iv)
+            except:
+                pass
+            try:
+                self.cipher2=AES.new(key, AES.MODE_GCM, iv)
             except Exception as e:
-                print(e)
-        print('end.')
-        
-    def _restore_data(self,srs,dest):
-        try:
-            with open(srs,'rb') as s:
-                with open(dest,'wb')as d:
-                    d.write(s.read)
-                d.close()
-                s.close()
-        except:
-            p=subprocess.Popen('copy "'+srs+'" "'+dest+'" /y', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                #print(e)
+                pass
+
+        def pad_data(self,data):
+            if len(data)%16!= 0:
+                while len(data)%16!= 0:
+                    data+=b' '
+                return data
+
+        def encrypt_data_aes(self,data):
+            data=self.pad_data(data)
+            return base64.b64encode(self.cipher.encrypt(data))
+
+        def decrypt_data_aes(self,data):
+            data=base64.b64decode(data)
+            return self.cipher.decrypt(data[AES.block_size:])
+
+        def encrypt_aes_gcm(self,data):
+            return self.cipher2.encrypt(data)
+
+        def decrypt_aes_gcm(self,data):
+            return self.cipher2.decrypt(data)
+
+
+        def fer_encrypt(self,data):
+            if type(data)!= bytes:
+                data=data.encode()
+            key=base64.b64encode(hashlib.sha256(self.key).digest())
+            fer=Fernet(key)
+            return fer.encrypt(data)
+
+        def fer_decrypt(self,data):
+            if type (data)!= bytes:
+                data=data.encode()
+            key=base64.b64encode(hashlib.sha256(self.key).digest())
+            fer=Fernet(key)
+            return fer.decrypt(data)
+
+
+        def _cp_file(self,path,name_cp):
+            srs=(path)
+            if name_cp=='backup':
+                dest=os.environ['AppData']+os.sep+'Cryptography'+os.sep+name_cp+os.path.splitext(path)[1]
+            else: 
+                dest=os.environ['AppData']+os.sep+'Cryptography'+os.sep+'Cipher'+os.sep+name_cp+os.path.splitext(path)[1]
+            try:
+                shutil.copyfile(srs,dest)
+            except Exception as e:
+                 if os.system('copy '+srs+' '+dest)!=0:
+                    raise Exception (str(e))
+            return[srs,dest]
+
+
+        def encrypt_file(self,path):
+            pathSize=int(os.path.getsize(path))
+            if pathSize>=1073741824:
+                pathes=self._cp_file(path,'encp')
+                cp_file=pathes[-1]
+                with open(cp_file,'rb') as srs:
+                    with open(pathes[0],'wb') as dest:
+                        try:
+                            dest.write(self.cipher.encrypt(pad(srs.read(),AES.block_size)))
+                            dest.close()
+                            srs.close()
+                            Delet_files().delet_one_file(cp_file)
+                            return 'Successfully encrypted!'
+                        except Exception as e:
+                            self._restore_data(cp_file,pathes[0])
+                            raise Exception (str(e))
+            elif pathSize>20971520:
+                with open(path,'rb') as file:
+                    data=file.read()
+                with open(path,'wb')as file:
+                    try:
+                        file.write(self.cipher.encrypt(pad(data,AES.block_size)))
+                        data=''
+                        return 'Successfully encrypted'
+                    except Exception as e:
+                        file.write(data)
+                        data=''
+                        raise Exception (str(e))
+            else:
+                with open(path,'rb') as file:
+                    data=file.read()
+                with open(path,'wb')as file:
+                    try:
+                        file.write(self.fer_encrypt(data))
+                        data=''
+                        return 'Successfully encrypted'
+                    except Exception as e:
+                        file.write(data)
+                        raise Exception (str(e))
+
+
+
+        def decrypt_file(self,path):
+            pathSize=int(os.path.getsize(path))
+            if pathSize>=1073741824:
+                pathes=self._cp_file(path,'decp')
+                cp_file=pathes[-1]
+                with open(cp_file,'rb') as srs:
+                    with open(pathes[0],'wb') as dest:
+                        try:
+                            dest.write(unpad(self.cipher.decrypt(srs.read()),AES.block_size))
+                            dest.close()
+                            srs.close()
+                            Delet_files().delet_one_file(cp_file)
+                            return 'Successfully decrypted'
+                        except  Exception as e:
+                            self._restore_data(cp_file,pathes[0])
+                            raise Exception (str(e))
+            elif pathSize>27962124:
+                with open(path,'rb')as file:
+                    data=file.read()
+                with open(path,'wb')as file:
+                    try:
+                        file.write(unpad(self.cipher.decrypt(data),AES.block_size))
+                        data=''
+                        return 'Successfully decrypted'
+                    except Exception as e:
+                        file.write(data)
+                        data=''
+                        raise Exception (str(e))
+            else:
+                with open(path,'rb')as file:
+                    data=file.read()
+                with open(path,'wb')as file:
+                    try:
+                        file.write(self.fer_decrypt(data))
+                        return 'Successfully decrypted'
+                    except Exception as e:
+                        file.write(data)
+                        data=''
+                        raise Exception (str(e))
+
+
+
+
+        def recursive_encrypt_files(self,path):
+            paths_dir=Dirs_and_files(path).get_all_files()
+            print('Processing...') 
+            for i in paths_dir:
+                try:
+                    self.encrypt_file(i)
+                except:
+                    pass
+            print('end.')
+
+
+        def sync_recursive_encrypt_files(self,path):
+            sec=''
+            faild=''
+            print('Processing...')
+            paths_dir=Dirs_and_files(path).get_all_files()
+            for i in paths_dir:
+                try:
+                    self.encrypt_file(i)
+                    sec+=f"{i.strip():<70}{' sec':>10}"+'\n'
+                except:
+                    faild+=f"{i.strip():<70}{' failde':>10}"+'\n'
+                    pass
+            print('end.')
+            return sec+faild
+
+        def recursive_decrypt_files(self,path):
+            paths_dir=Dirs_and_files(path).get_all_files()
+            print('Processing...') 
+            for i in paths_dir:
+                try:
+                    self.decrypt_file(i)
+                except Exception as e:
+                    print(e)
+            print('end.')
+
+        def _restore_data(self,srs,dest):
+            try:
+                with open(srs,'rb') as s:
+                    with open(dest,'wb')as d:
+                        d.write(s.read)
+                    d.close()
+                    s.close()
+            except:
+                p=subprocess.Popen('copy "'+srs+'" "'+dest+'" /y', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
         
 def get_hash_key_and_iv(passwd):
@@ -273,7 +302,7 @@ def main():
                 count+=1
     key=bytes.fromhex(key)
     iv=hashlib.md5(key[::2]).digest()
-    cr=Crypt_ac(key,iv)
+    cr=Crypt_ac().Symmetric_encryption(key,iv)
     cr._cp_file(os.environ['AppData']+os.sep+'Cryptography'+os.sep+'key.key','backup')
     time.sleep(1)
     help_='\n'
@@ -290,7 +319,7 @@ def main():
     
     print(help_)
     while True:
-        cr=Crypt_ac(key,iv)
+        cr=Crypt_ac().Symmetric_encryption(key,iv)
         time.sleep(0.5)
         t=input('Select one option: ')
         
@@ -366,7 +395,7 @@ def main():
                 psw=hashlib.md5(psw.encode()).digest()
                 iv2=hashlib.md5(psw[::2]).digest()
                 try:
-                    dec_text=Crypt_ac(psw,iv2).fer_decrypt(text)
+                    dec_text=Crypt_ac().Symmetric_encryption(psw,iv2).fer_decrypt(text)
                 except:
                     print('Worng password.',end='')
                 if len(dec_text)<=450 and len(dec_text)>0:
@@ -392,7 +421,7 @@ def main():
             elif psw == '2':
                 psw=getpass('Please enter password\n> ').encode()
                 path=input('Please enter path: ')
-                print(Crypt_ac(get_hash_key_and_iv(psw)[0],get_hash_key_and_iv(psw)[-1]).decrypt_file(path))
+                print(Crypt_ac().Symmetric_encryption(get_hash_key_and_iv(psw)[0],get_hash_key_and_iv(psw)[-1]).decrypt_file(path))
             
         elif t=='7':
             print(Fore.LIGHTRED_EX)
@@ -407,8 +436,8 @@ def main():
             w=input('continue (y/n): ')
             if w=='y':
                 path=input('to encrypt folder please enter full path (ex: C:\\Users\\foder): ')
-                with open("Encrypt Folder.txt",'w')as file:
-                    file.write(cr.sync_recursive_encrypt_files(path))
+                with open("Encrypt Folder.txt",'wb')as file:
+                    file.write(cr.sync_recursive_encrypt_files(path).encode('utf8',errors="replace"))
                 os.startfile("Encrypt Folder.txt")
                 print('resault file was open! 🢃')
                 
@@ -421,7 +450,7 @@ def main():
             elif psw == '2':
                 psw=getpass('Please enter password\n> ')
                 path=input('Please enter path: ')
-                Crypt_ac(get_hash_key_and_iv(psw)[0],get_hash_key_and_iv(psw)[-1]).recursive_decrypt_files(path)
+                Crypt_ac().Symmetric_encryption(get_hash_key_and_iv(psw)[0],get_hash_key_and_iv(psw)[-1]).recursive_decrypt_files(path)
                 
                 
 
