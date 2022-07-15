@@ -3,11 +3,13 @@ from Cryptodome.PublicKey import RSA
 from Cryptodome.Cipher import PKCS1_OAEP
 from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import pad, unpad
+from Cryptodome.Util import number
 from cryptography.fernet import Fernet
 from ffd import Dirs_and_files, Delet_files 
 import base64
 import hashlib
 import shutil
+import random
 import os
 import sys
 import subprocess
@@ -46,7 +48,29 @@ class Crypt_ac(object):
             return cipher.decrypt(base64.b64decode(data))
 
 
-    
+
+
+    class DH_encryption(object):
+
+        def gen_public_key(self):
+            p=number.getPrime(512)
+            g=random.randint(100,1000)
+            return [p,g]
+
+
+        def dh_send_A_B(self,p,g):
+            a_b=random.randint(200,10**4)
+            A_B = g**a_b % p
+            return {
+                  'send_num':A_B,
+                  'secret_num':a_b
+            }
+
+        def gen_key(self,A_B,a_b,p):
+            key = A_B**a_b % p
+            return hashlib.sha256(str(key).encode()).digest()
+
+
     
     class Symmetric_encryption(object):
 
