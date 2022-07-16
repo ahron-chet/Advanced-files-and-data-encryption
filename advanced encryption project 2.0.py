@@ -50,26 +50,43 @@ class Crypt_ac(object):
 
 
 
-    class DH_encryption(object):
 
-        def gen_public_key(self):
+
+    class Diffie_Hellman(object):
+
+        def __publicNum__(self):
             p=number.getPrime(512)
-            g=random.randint(100,1000)
-            return [p,g]
-
-
-        def dh_send_A_B(self,p,g):
-            a_b=random.randint(200,10**4)
-            A_B = g**a_b % p
+            g=random.randint(100,1000)                                                      
             return {
-                  'send_num':A_B,
-                  'secret_num':a_b
+                  'p':p,
+                  'g':g
             }
 
-        def gen_key(self,A_B,a_b,p):
-            key = A_B**a_b % p
-            return hashlib.sha256(str(key).encode()).digest()
 
+        def gen_full_key(self):
+            public=self.__publicNum__()
+            private=self.gen_private_key()
+            public={
+                'p':public['p'],'g':public['g'],
+                'send':(public['g']**private % public['p'])
+            }
+            return {
+                  'public':public,
+                  'private':private
+            }
+
+        def gen_private_key(self):
+            return random.randint(200,10**4)
+
+        def import_public(self,recv_public,ownPrviate):
+            p,g=recv_public['p'],recv_public['g']
+            A_B = g**ownPrviate % p
+            return {'send':A_B,'p':p}
+
+        def send_symmetric_key(self,rcvPublic,ownPrivate):
+            p,A_B=rcvPublic['p'],rcvPublic['send']
+            key = A_B**ownPrivate % p
+            return hashlib.sha256(str(key).encode()).hexdigest()
 
     
     class Symmetric_encryption(object):
