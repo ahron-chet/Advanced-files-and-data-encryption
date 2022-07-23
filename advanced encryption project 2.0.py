@@ -89,6 +89,62 @@ class Crypt_ac(object):
             return hashlib.sha256(str(key).encode()).hexdigest()
 
     
+    
+    class XOR(object):
+        
+        def getbinary(self,val):
+            bin_val=''
+            for i in val:
+                b=str(bin(ord(i))[2:])
+                bin_val+=('0'*(8-len(b))+b)
+            return bin_val
+
+        def get_random_xor(self,lengh):
+            b=''
+            for i in range(lengh*8):
+                b+=str((random.randint(0,1)))
+            return b
+
+        def __xor__(self,a,b):
+            if a==b:
+                return 0
+            else:
+                return 1
+
+        def xor_encrypt(self,xor_table,binary_valu):
+            c=0
+            res=''
+            e=''
+            for i in binary_valu:
+                e+=str(self.__xor__(i,xor_table[c]))
+                c+=1
+                if c%8==0:
+                    res+=hex(self.bin_revers(e))
+                    e=''
+            return base64.b64encode(res.encode())
+
+        def bin_revers(self,bin_val):
+            b=0
+            for i in range(len(bin_val)):
+                if int(bin_val[-(i+1)])!=0:
+                    b+=2**(i+1)
+            return b//2
+
+        def pad(self,bin_val):
+            return '0'*(8-len(bin_val))+bin_val
+
+        def decrypt(self,xorTable,encrypt_data):
+            res=''
+            c=0
+            for i in base64.b64decode(encrypt_data).decode().split('0x')[1:]:
+                e=self.pad(bin(int('0x'+i,16))[2:])
+                dec=''
+                for n in range(c,c+8):
+                    dec+=str(self.__xor__(xorTable[n],e[n%8]))
+                res+=chr(self.bin_revers(dec))
+                c+=8     
+            return res
+
     class Symmetric_encryption(object):
 
         def __init__(self,key,iv=b'0'*16):
