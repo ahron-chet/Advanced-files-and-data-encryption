@@ -90,6 +90,50 @@ class Crypt_ac(object):
 
     
     
+    class ac_algorithm_encription(object):
+
+        def __init__(self,key):
+            self.key=self.getbinary(hashlib.sha256(key.encode()).hexdigest())
+
+        def __xor__(self,a,b):
+            if a==b:
+                return 0
+            else:
+                return 1
+
+        def getbinary(self,val):
+            bin_val=''
+            for i in val:
+                b=str(bin(ord(i))[2:])
+                bin_val+=('0'*(8-len(b))+b)
+            return bin_val 
+
+        def bin_revers(self,bin_val):
+                b=0
+                for i in range(len(bin_val)):
+                    if int(bin_val[-(i+1)])!=0:
+                        b+=2**(i+1)
+                return b//2
+
+        def _pad_(self,val,length):
+            return '0'*(length-len(val))+val
+
+        def random_the_key(self,key):
+            return self.getbinary(hashlib.sha256(key.encode()).hexdigest())
+
+
+        def ac_encrypt(self,data):
+            len_key=len(self.key)
+            en_dt=''
+            data=self.getbinary(data)
+            for i in range(len(data)):
+                en_dt+=str(self.__xor__(data[i],self.key[i%len_key]))
+                if i % len_key==0 and i>2:
+                    self.key=self.random_the_key(self.key)
+            return en_dt
+
+
+    
     class XOR(object):
         
         def getbinary(self,val):
